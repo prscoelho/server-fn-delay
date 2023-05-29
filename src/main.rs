@@ -27,6 +27,7 @@ async fn main() {
         .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));
 
+    let _ = Foo::register();
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
     log!("listening on http://{}", &addr);

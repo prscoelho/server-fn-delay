@@ -28,15 +28,52 @@ pub fn App(cx: Scope) -> impl IntoView {
     }
 }
 
-/// Renders the home page of your application.
+#[server(Foo, "/api")]
+async fn server_foo(with_delay: bool) -> Result<bool, ServerFnError> {
+    use tokio::time::{sleep, Duration};
+
+    if with_delay {
+        sleep(Duration::from_secs(5)).await;
+    }
+
+    Ok(with_delay)
+}
+
+async fn fetch_server_foo(with_delay: Option<bool>) -> Option<bool> {
+    if let Some(with_delay) = with_delay {
+        server_foo(with_delay).await.ok()
+    } else {
+        None
+    }
+}
+
 #[component]
 fn HomePage(cx: Scope) -> impl IntoView {
-    // Creates a reactive value to update the button
-    let (count, set_count) = create_signal(cx, 0);
-    let on_click = move |_| set_count.update(|count| *count += 1);
+    let (with_delay, set_with_delay) = create_signal(cx, None);
+    let resource = create_resource(cx, with_delay, fetch_server_foo);
+
+    let on_click_with_delay = move |_| {
+        set_with_delay(Some(true));
+    };
+
+    let on_click_without_delay = move |_| {
+        set_with_delay(Some(false));
+    };
 
     view! { cx,
-        <h1>"Welcome to Leptos!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+        <button on:click=on_click_with_delay>"With delay"</button>
+        <button on:click=on_click_without_delay>"Without delay"</button>
+        { move || with_delay().map(|delay| if delay {
+            view! { cx, <p>"Input has delay"</p> }
+        } else {
+            view! { cx, <p>"Input has no delay"</p> }
+        }) }
+        <Suspense fallback=move || view!{ cx, <p>"Loading.."</p> }>
+        { move || resource.read(cx).flatten().map(|delay| if delay {
+            view! { cx, <p>"Output had delay"</p> }
+            } else {
+                view! { cx, <p>"Output had no delay"</p> }
+            }) }
+        </Suspense>
     }
 }
